@@ -7,6 +7,14 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // 클라이언트 사이드 Supabase 클라이언트 생성
 export const createClient = () => {
+  if (!supabaseUrl) {
+    throw new Error('supabaseUrl is required. NEXT_PUBLIC_SUPABASE_URL 환경 변수를 설정해주세요.');
+  }
+  
+  if (!supabaseAnonKey) {
+    throw new Error('supabaseAnonKey is required. NEXT_PUBLIC_SUPABASE_ANON_KEY 환경 변수를 설정해주세요.');
+  }
+  
   return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
@@ -18,6 +26,14 @@ export const createClient = () => {
 
 // 서버 사이드 Supabase 클라이언트 생성
 export const createServerClient = async (cookies) => {
+  if (!supabaseUrl) {
+    throw new Error('supabaseUrl is required. NEXT_PUBLIC_SUPABASE_URL 환경 변수를 설정해주세요.');
+  }
+  
+  if (!supabaseAnonKey) {
+    throw new Error('supabaseAnonKey is required. NEXT_PUBLIC_SUPABASE_ANON_KEY 환경 변수를 설정해주세요.');
+  }
+  
   const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: false,
