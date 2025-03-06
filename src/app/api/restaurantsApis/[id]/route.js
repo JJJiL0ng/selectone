@@ -2,9 +2,9 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@/app/lib/supabase';
-import { supabase } from '@/lib/supabase';
-import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { supabase } from '@/app/lib/supabase';
+import { getServerSession } from 'next-auth';
+import { authOptions } from '@/app/api/auth/[...nextauth]/options';
 
 // GET /api/restaurantsApis - 모든 맛집 조회 API
 export async function GET(request) {
