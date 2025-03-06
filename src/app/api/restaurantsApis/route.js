@@ -21,8 +21,7 @@ export async function GET(request) {
     // Supabase 서버 클라이언트 생성
     const supabase = await createServerClient(cookies());
     
-    // 맛집 정보와 사용자 정보 조인하여 가져오기
-    const { data: restaurants, error } = await supabase
+    let query = supabase
       .from('restaurants')
       .select(`
         *,
@@ -31,8 +30,24 @@ export async function GET(request) {
           nickname,
           email
         )
-      `)
-      .order('created_at', { ascending: false });
+      `);
+    
+    // 특정 사용자의 맛집만 필터링
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+    
+    // 지도 범위 내 맛집만 필터링
+    if (bounds) {
+      const [lat1, lng1, lat2, lng2] = bounds.split(',').map(Number);
+      query = query
+        .gte('latitude', Math.min(lat1, lat2))
+        .lte('latitude', Math.max(lat1, lat2))
+        .gte('longitude', Math.min(lng1, lng2))
+        .lte('longitude', Math.max(lng1, lng2));
+    }
+    
+    const { data: restaurants, error } = await query.order('created_at', { ascending: false });
 
     if (error) throw error;
 
