@@ -3,7 +3,8 @@ import { Inter } from 'next/font/google';
 import Link from 'next/link';
 import './globals.css';
 import { AuthProvider } from './context/authContext';
-import { createClient } from './lib/supabase';
+import { createServerClient } from './lib/supabase-server';
+import { cookies } from 'next/headers';
 const inter = Inter({ subsets: ['latin'] });
 
 export const metadata = {
@@ -12,7 +13,8 @@ export const metadata = {
 };
 
 export default async function RootLayout({ children }) {
-  const supabase = createClient();
+  // 서버 컴포넌트에서 쿠키를 사용하여 Supabase 클라이언트 생성
+  const supabase = await createServerClient(cookies());
   
   // 서버 컴포넌트에서 초기 세션 상태 확인
   const {
