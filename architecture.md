@@ -100,4 +100,3 @@ CREATE UNIQUE INDEX users_nickname_idx ON users(nickname);
 4. **미들웨어 경량화**:
    - 로그인 상태만 체크하는 간단한 미들웨어 구현
 
-이 방식으로 소셜 로그인과 고유 닉네임 요구사항을 충족하면서도 개발 복잡성을 최소화할 수 있습니다. Supabase Auth는 구글 로그인을 쉽게 통합할 수 있어 개발 시간을 단축할 수 있습니다.

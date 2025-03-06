@@ -11,9 +11,9 @@ export default function Home() {
   const router = useRouter();
 
   useEffect(() => {
-    // 로그인한 사용자는 바로 지도 페이지로 리디렉션
-    if (user && !isLoading) {
-      router.push('/map');
+    // 로그인한 사용자가 닉네임이 없으면 온보딩으로 리디렉션
+    if (user && !user.nickname && !isLoading) {
+      router.push('/onboarding');
     }
   }, [user, isLoading, router]);
 
@@ -21,6 +21,23 @@ export default function Home() {
     return (
       <div className="flex items-center justify-center min-h-[80vh]">
         <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-orange-500"></div>
+      </div>
+    );
+  }
+
+  // 로그인한 사용자는 지도 페이지로
+  if (user && user.nickname) {
+    return (
+      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6">
+        <h1 className="text-3xl font-bold mb-8 text-center">안녕하세요, {user.nickname}님!</h1>
+        <div className="flex flex-col sm:flex-row gap-4">
+          <Link
+            href="/map"
+            className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
+          >
+            맛집 지도 보기
+          </Link>
+        </div>
       </div>
     );
   }
@@ -42,14 +59,9 @@ export default function Home() {
       </Link>
       
       <div className="mt-16 w-full max-w-3xl bg-white rounded-xl shadow-xl overflow-hidden">
-        <img
-          src="/images/map-preview.jpg"
-          alt="원픽 맛집지도 미리보기"
-          className="w-full h-auto"
-          onError={(e) => {
-            e.target.src = 'https://via.placeholder.com/800x400?text=원픽+맛집지도';
-          }}
-        />
+        <div className="w-full h-[400px] bg-gray-100 flex items-center justify-center text-gray-500">
+          <p className="text-xl font-medium">원픽 맛집지도</p>
+        </div>
       </div>
     </div>
   );

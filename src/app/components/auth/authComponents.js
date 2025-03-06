@@ -70,6 +70,16 @@ export function NicknameForm({ onSuccess }) {
   const [error, setError] = useState('');
   const [isAvailable, setIsAvailable] = useState(null);
   const { user, refreshUser } = useAuth();
+  const [debugInfo, setDebugInfo] = useState({ apiCalls: [] });
+
+  // 디버깅 정보 추가
+  const addDebugInfo = (info) => {
+    console.log('NicknameForm 디버그:', info);
+    setDebugInfo(prev => ({
+      ...prev,
+      apiCalls: [...prev.apiCalls, { time: new Date().toISOString(), ...info }]
+    }));
+  };
 
   // 닉네임 중복 체크
   const checkNicknameAvailability = async (value) => {
@@ -78,18 +88,35 @@ export function NicknameForm({ onSuccess }) {
       return;
     }
 
+    addDebugInfo({ action: '닉네임 중복 체크 시작', nickname: value });
+
     try {
       const response = await fetch('/api/authApis', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: value.trim() })
+        body: JSON.stringify({ nickname: value.trim() }),
+        credentials: 'include'
       });
 
+      addDebugInfo({ 
+        action: '닉네임 중복 체크 응답 받음', 
+        status: response.status,
+        ok: response.ok
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || '닉네임 체크 중 오류가 발생했습니다.');
+      }
+
       const data = await response.json();
+      addDebugInfo({ action: '닉네임 중복 체크 결과', available: data.available });
       setIsAvailable(data.available);
     } catch (error) {
       console.error('닉네임 체크 에러:', error);
+      addDebugInfo({ action: '닉네임 중복 체크 에러', error: error.message });
       setIsAvailable(null);
+      setError('닉네임 확인 중 오류가 발생했습니다: ' + error.message);
     }
   };
 
@@ -127,69 +154,112 @@ export function NicknameForm({ onSuccess }) {
     if (!nickname || error || !isAvailable) return;
 
     setIsSubmitting(true);
+    addDebugInfo({ action: '닉네임 저장 시작', nickname });
 
     try {
+      // 세션 및 토큰 가져오는 방식 수정
       const response = await fetch('/api/authApis', {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ nickname: nickname.trim() })
+        headers: { 
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ nickname: nickname.trim() }),
+        credentials: 'include'  // 쿠키 포함하여 요청
       });
 
-      const data = await response.json();
-      
+      addDebugInfo({ 
+        action: '닉네임 저장 응답 받음', 
+        status: response.status,
+        ok: response.ok
+      });
+
       if (!response.ok) {
-        throw new Error(data.error || '닉네임 설정 중 오류가 발생했습니다.');
+        const errorData = await response.json();
+        throw new Error(errorData.error || '닉네임 설정 중 오류가 발생했습니다.');
       }
 
-      await refreshUser();
-      if (onSuccess) onSuccess();
+      const data = await response.json();
+      addDebugInfo({ action: '닉네임 저장 성공', data });
+
+      try {
+        addDebugInfo({ action: '사용자 정보 새로고침 시작' });
+        const refreshedUser = await refreshUser();
+        addDebugInfo({ 
+          action: '사용자 정보 새로고침 완료', 
+          success: !!refreshedUser,
+          user: refreshedUser ? `ID: ${refreshedUser.id}, 닉네임: ${refreshedUser.nickname}` : null
+        });
+      } catch (refreshError) {
+        console.error('사용자 정보 새로고침 에러:', refreshError);
+        addDebugInfo({ action: '사용자 정보 새로고침 에러', error: refreshError.message });
+      }
+
+      if (onSuccess) {
+        addDebugInfo({ action: 'onSuccess 콜백 호출' });
+        onSuccess();
+      }
     } catch (error) {
       console.error('닉네임 저장 에러:', error);
+      addDebugInfo({ action: '닉네임 저장 에러', error: error.message });
       setError(error.message);
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // 디버깅 정보 표시
+  const showDebugInfo = process.env.NODE_ENV === 'development';
+
   return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md">
-      <div className="mb-4">
-        <label htmlFor="nickname" className="block mb-2 text-sm font-medium text-gray-700">
-          닉네임
-        </label>
-        <input
-          type="text"
-          id="nickname"
-          value={nickname}
-          onChange={handleNicknameChange}
-          placeholder="맛집탐험가"
-          className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
-            error ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-orange-200'
-          }`}
-          required
-        />
-        
-        {error ? (
-          <p className="mt-2 text-sm text-red-600">{error}</p>
-        ) : isAvailable === true ? (
-          <p className="mt-2 text-sm text-green-600">사용 가능한 닉네임입니다.</p>
-        ) : isAvailable === false ? (
-          <p className="mt-2 text-sm text-red-600">이미 사용 중인 닉네임입니다.</p>
-        ) : null}
-      </div>
+    <div className="w-full max-w-md">
+      {showDebugInfo && (
+        <div className="mb-4 p-2 bg-gray-100 rounded text-xs font-mono overflow-auto max-h-40">
+          <details>
+            <summary className="cursor-pointer">디버그 정보</summary>
+            <pre>{JSON.stringify(debugInfo, null, 2)}</pre>
+          </details>
+        </div>
+      )}
       
-      <button
-        type="submit"
-        disabled={isSubmitting || !!error || !isAvailable}
-        className={`w-full py-3 px-4 font-medium rounded-lg transition-colors text-white ${
-          isSubmitting || !!error || !isAvailable
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-orange-500 hover:bg-orange-600'
-        }`}
-      >
-        {isSubmitting ? '저장 중...' : '닉네임 저장하기'}
-      </button>
-    </form>
+      <form onSubmit={handleSubmit} className="w-full">
+        <div className="mb-4">
+          <label htmlFor="nickname" className="block mb-2 text-sm font-medium text-gray-700">
+            닉네임
+          </label>
+          <input
+            type="text"
+            id="nickname"
+            value={nickname}
+            onChange={handleNicknameChange}
+            placeholder="맛집탐험가"
+            className={`w-full px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 ${
+              error ? 'border-red-300 focus:ring-red-200' : 'border-gray-300 focus:ring-orange-200'
+            }`}
+            required
+          />
+          
+          {error ? (
+            <p className="mt-2 text-sm text-red-600">{error}</p>
+          ) : isAvailable === true ? (
+            <p className="mt-2 text-sm text-green-600">사용 가능한 닉네임입니다.</p>
+          ) : isAvailable === false ? (
+            <p className="mt-2 text-sm text-red-600">이미 사용 중인 닉네임입니다.</p>
+          ) : null}
+        </div>
+        
+        <button
+          type="submit"
+          disabled={isSubmitting || !!error || !isAvailable}
+          className={`w-full py-3 px-4 font-medium rounded-lg transition-colors text-white ${
+            isSubmitting || !!error || !isAvailable
+              ? 'bg-gray-400 cursor-not-allowed'
+              : 'bg-orange-500 hover:bg-orange-600'
+          }`}
+        >
+          {isSubmitting ? '저장 중...' : '닉네임 저장하기'}
+        </button>
+      </form>
+    </div>
   );
 }
 

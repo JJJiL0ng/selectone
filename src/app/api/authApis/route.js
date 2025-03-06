@@ -1,10 +1,9 @@
-
 // app/api/authApis/route.js
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@/app/lib/supabase';
 
-// POST /api/authApis/check-nickname - 닉네임 중복 확인 API
+// POST /api/authApis - 닉네임 중복 확인 API
 export async function POST(request) {
   try {
     const body = await request.json();
@@ -19,6 +18,10 @@ export async function POST(request) {
 
     // Supabase 서버 클라이언트 생성
     const supabase = await createServerClient(cookies());
+
+    // 현재 로그인한 사용자 확인 (디버깅용)
+    const { data: { session } } = await supabase.auth.getSession();
+    console.log('POST API - 세션 상태:', session ? `세션 있음 (${session.user.id})` : '세션 없음');
 
     // 닉네임 중복 확인
     const { data, error, count } = await supabase
@@ -47,7 +50,7 @@ export async function POST(request) {
   }
 }
 
-// PUT /api/authApis/nickname - 닉네임 업데이트 API
+// PUT /api/authApis - 닉네임 업데이트 API
 export async function PUT(request) {
   try {
     const body = await request.json();
@@ -77,22 +80,30 @@ export async function PUT(request) {
     }
 
     // Supabase 서버 클라이언트 생성
-    const supabase = await createServerClient(cookies());
+    const cookieStore = cookies();
+    const supabase = await createServerClient(cookieStore);
 
     // 현재 로그인한 사용자 확인
     const { data: { session } } = await supabase.auth.getSession();
+    console.log('PUT API - 세션 상태:', session ? `세션 있음 (${session.user.id})` : '세션 없음');
+    
+    // 세션 디버깅을 위한 추가 정보
+    const allCookies = await cookieStore.getAll();
+    console.log('쿠키 정보:', allCookies.map(c => c.name));
+
     if (!session) {
       return NextResponse.json(
-        { error: '로그인이 필요합니다.' },
+        { error: '로그인이 필요합니다. 세션을 찾을 수 없습니다.' },
         { status: 401 }
       );
     }
 
-    // 닉네임 중복 확인
+    // 닉네임 중복 확인 (자신 제외)
     const { data: checkData, count } = await supabase
       .from('users')
       .select('id', { count: 'exact' })
-      .eq('nickname', nickname);
+      .eq('nickname', nickname)
+      .neq('id', session.user.id);
 
     if (count > 0) {
       return NextResponse.json(
@@ -119,8 +130,8 @@ export async function PUT(request) {
 
     return NextResponse.json({
       success: true,
-      user: data,
-      message: '닉네임이 업데이트되었습니다.'
+      message: '닉네임이 성공적으로 업데이트되었습니다.',
+      user: data
     });
   } catch (error) {
     console.error('API 에러:', error);
