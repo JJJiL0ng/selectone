@@ -145,7 +145,7 @@ export const signInWithGoogle = async () => {
   const { data, error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/auth/callback`,
+      redirectTo: `${window.location.origin}/api/authApis/callback`,
     },
   });
   
@@ -168,4 +168,26 @@ export const signOut = async () => {
   }
   
   return true;
+};
+
+// 서버 사이드에서 현재 사용자 정보 가져오기
+export const getServerSideUser = async (supabase) => {
+  const { data: { session } } = await supabase.auth.getSession();
+  
+  if (!session) {
+    return null;
+  }
+  
+  const { data, error } = await supabase
+    .from('users')
+    .select('*')
+    .eq('id', session.user.id)
+    .single();
+  
+  if (error) {
+    console.error('서버 사이드 사용자 정보 조회 에러:', error);
+    return null;
+  }
+  
+  return data;
 };

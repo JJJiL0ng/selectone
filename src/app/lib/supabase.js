@@ -24,8 +24,16 @@ export const createClient = () => {
   });
 };
 
+// 서버 관련 함수들은 별도 파일로 분리
+export function createBrowserClient() {
+  return createSupabaseClient(
+    process.env.NEXT_PUBLIC_SUPABASE_URL,
+    process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  );
+}
+
 // 서버 사이드 Supabase 클라이언트 생성
-export const createServerClient = async (cookies) => {
+export async function createServerClient(cookieStore) {
   if (!supabaseUrl) {
     throw new Error('supabaseUrl is required. NEXT_PUBLIC_SUPABASE_URL 환경 변수를 설정해주세요.');
   }
@@ -36,17 +44,25 @@ export const createServerClient = async (cookies) => {
   
   const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
     auth: {
-      persistSession: false,
+      persistSession: true,
+      autoRefreshToken: true,
     },
-    global: {
-      headers: {
-        cookie: cookies.toString(),
+    cookies: {
+      get: async (name) => {
+        const cookie = await cookieStore.get(name);
+        return cookie?.value;
+      },
+      set: async (name, value, options) => {
+        await cookieStore.set({ name, value, ...options });
+      },
+      remove: async (name, options) => {
+        await cookieStore.set({ name, value: '', ...options });
       },
     },
   });
 
   return supabase;
-};
+}
 
 // Supabase DB에서 모든 맛집 정보를 가져오는 함수
 export const getAllRestaurants = async (supabase) => {
