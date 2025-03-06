@@ -31,6 +31,28 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
     console.log('현재 사용자 상태:', user);
   }, [user]);
 
+  // 폼 데이터를 로컬 스토리지에 저장
+  useEffect(() => {
+    // 폼 데이터가 변경될 때마다 로컬 스토리지에 저장
+    if (formData.name || formData.address || formData.description) {
+      localStorage.setItem('restaurantFormData', JSON.stringify(formData));
+    }
+  }, [formData]);
+
+  // 페이지 로드 시 로컬 스토리지에서 폼 데이터 복원
+  useEffect(() => {
+    if (!initialData) {
+      const savedData = localStorage.getItem('restaurantFormData');
+      if (savedData) {
+        const parsedData = JSON.parse(savedData);
+        setFormData(parsedData);
+        if (parsedData.latitude && parsedData.longitude) {
+          setSelectedLocation({ lat: parsedData.latitude, lng: parsedData.longitude });
+        }
+      }
+    }
+  }, [initialData]);
+
   // 맵 클릭 핸들러
   const handleMapClick = async (location) => {
     try {
@@ -80,15 +102,19 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
   const handleSubmit = async (e) => {
     e.preventDefault();
 
-    // 사용자 인증 상태 확인 추가
-    if (!user) {
-      setError('로그인이 필요합니다. 로그인 후 다시 시도해주세요.');
-      return;
-    }
-
     // 필수 필드 검증
     if (!formData.name || !formData.latitude || !formData.longitude || !formData.address) {
       setError('이름, 위치, 주소는 필수 입력사항입니다.');
+      return;
+    }
+
+    // 사용자 인증 상태 확인
+    if (!user) {
+      // 폼 데이터를 로컬 스토리지에 저장
+      localStorage.setItem('restaurantFormData', JSON.stringify(formData));
+      
+      // 로그인 페이지로 리디렉션
+      router.push(`/login?returnUrl=${encodeURIComponent('/add-restaurant')}`);
       return;
     }
 
@@ -114,6 +140,9 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
         throw new Error(data.error || '맛집 저장 중 오류가 발생했습니다.');
       }
 
+      // 성공적으로 저장되면 로컬 스토리지에서 폼 데이터 삭제
+      localStorage.removeItem('restaurantFormData');
+      
       router.push('/map');
     } catch (error) {
       console.error('맛집 저장 에러:', error);
@@ -128,7 +157,8 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
       {/* 사용자 인증 상태 표시 */}
       {!user && (
         <div className="bg-yellow-50 text-yellow-700 p-4 rounded-lg mb-6">
-          로그인 상태를 확인 중입니다. 로그인이 필요한 기능입니다.
+          <p>맛집 정보를 입력한 후 저장하면 로그인 페이지로 이동합니다.</p>
+          <p>로그인 후에는 입력한 정보가 자동으로 저장됩니다.</p>
         </div>
       )}
       
@@ -243,7 +273,7 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
                   : 'bg-orange-500 hover:bg-orange-600'
               }`}
             >
-              {isSubmitting ? '저장 중...' : isEditMode ? '맛집 정보 수정하기' : '원픽 맛집 등록하기'}
+              {isSubmitting ? '저장 중...' : user ? (isEditMode ? '맛집 정보 수정하기' : '원픽 맛집 등록하기') : '로그인하고 등록하기'}
             </button>
           </div>
         </div>

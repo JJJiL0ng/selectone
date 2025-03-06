@@ -37,7 +37,7 @@ export default function MapPage() {
           console.error('API 응답 에러:', errorData);
           throw new Error(errorData.error || '맛집 데이터를 불러오는데 실패했습니다');
         }
-        
+        // 
         const data = await response.json();
         console.log('불러온 맛집 데이터:', data);
         setRestaurants(data.restaurants || []);

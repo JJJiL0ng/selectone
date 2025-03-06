@@ -13,22 +13,15 @@ export async function middleware(req) {
   // 현재 경로
   const { pathname } = req.nextUrl;
 
-  // 인증이 필요한 경로 목록
-  const protectedRoutes = ['/map', '/add-restaurant', '/edit-restaurant'];
-  // 인증된 사용자가 접근하면 리디렉션될 경로
-  const authRoutes = ['/login', '/map'];
+  // 인증이 필요한 경로 목록 (add-restaurant는 제외)
+  const protectedRoutes = ['/edit-restaurant'];
   
   // 인증이 필요한 경로에 인증 없이 접근하는 경우
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
   if (isProtectedRoute && !session) {
     const redirectUrl = new URL('/login', req.url);
-    return NextResponse.redirect(redirectUrl);
-  }
-  
-  const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
-  if (isAuthRoute && session) {
-    // 지도 페이지로 리디렉션
-    const redirectUrl = new URL('/map', req.url);
+    // 로그인 후 돌아올 경로를 쿼리 파라미터로 추가
+    redirectUrl.searchParams.set('returnUrl', pathname);
     return NextResponse.redirect(redirectUrl);
   }
 

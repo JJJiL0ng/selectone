@@ -1,21 +1,62 @@
 // app/page.jsx
 'use client';
 
-import { useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from './context/authContext';
-import Link from 'next/link';
+import { GoogleMapComponent, LocationSearch, CurrentLocationButton } from './components/map/mapComponents';
 
 export default function Home() {
-  const { user, isLoading } = useAuth();
+  const [restaurants, setRestaurants] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [selectedLocation, setSelectedLocation] = useState(null);
+  const [error, setError] = useState(null);
   const router = useRouter();
+  const { user } = useAuth();
 
+  // 맛집 데이터 불러오기
   useEffect(() => {
-    // 로그인한 사용자가 닉네임이 없으면 온보딩으로 리디렉션
-    if (user && !user.nickname && !isLoading) {
-      router.push('/map');
-    }
-  }, [user, isLoading, router]);
+    const fetchRestaurants = async () => {
+      try {
+        setIsLoading(true);
+        
+        const response = await fetch('/api/restaurantsApis', {
+          method: 'GET',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          cache: 'no-store'
+        });
+        
+        console.log('API 응답 상태:', response.status);
+        
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({}));
+          console.error('API 응답 에러:', errorData);
+          throw new Error(errorData.error || '맛집 데이터를 불러오는데 실패했습니다');
+        }
+        
+        const data = await response.json();
+        console.log('불러온 맛집 데이터:', data);
+        setRestaurants(data.restaurants || []);
+      } catch (error) {
+        console.error('맛집 데이터 불러오기 에러:', error);
+        setError(error.message);
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    fetchRestaurants();
+  }, []);
+
+  // 위치 검색 결과 처리
+  const handleLocationSelect = (location) => {
+    setSelectedLocation({ lat: location.lat, lng: location.lng });
+  };
+
+  // 사용자의 맛집 찾기
+  const userRestaurant = user ? restaurants.find(r => r.user_id === user.id) : null;
 
   if (isLoading) {
     return (
@@ -25,43 +66,64 @@ export default function Home() {
     );
   }
 
-  // 로그인한 사용자는 지도 페이지로
-  if (user && user.nickname) {
+  if (error) {
     return (
-      <div className="min-h-[80vh] flex flex-col items-center justify-center p-6">
-        <h1 className="text-3xl font-bold mb-8 text-center">안녕하세요, {user.nickname}님!</h1>
-        <div className="flex flex-col sm:flex-row gap-4">
-          <Link
-            href="/map"
-            className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-6 rounded-lg transition-colors"
-          >
-            맛집 지도 보기
-          </Link>
-        </div>
+      <div className="max-w-2xl mx-auto p-6 text-center">
+        <p className="text-red-500">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="mt-4 px-4 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-colors"
+        >
+          다시 시도하기
+        </button>
       </div>
     );
   }
 
-  // 로그인하지 않은 사용자를 위한 랜딩 페이지
   return (
-    <div className="min-h-[80vh] flex flex-col items-center justify-center p-6 bg-gradient-to-b from-orange-50 to-white">
-      <h1 className="text-4xl sm:text-5xl font-bold mb-6 text-center">당신의 인생 맛집은 어디인가요?</h1>
-      <p className="text-lg text-center text-gray-600 max-w-2xl mb-10">
-        모든 사람이 단 하나의 맛집만 추천하는 원픽 맛집지도.
-        <br /> 진짜 맛집만 공유되는 특별한 경험을 시작해보세요.
-      </p>
-      
-      <Link
-        href="/login"
-        className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-8 rounded-lg text-lg transition-colors shadow-lg"
-      >
-        시작하기
-      </Link>
-      
-      <div className="mt-16 w-full max-w-3xl bg-white rounded-xl shadow-xl overflow-hidden">
-        <div className="w-full h-[400px] bg-gray-100 flex items-center justify-center text-gray-500">
-          <p className="text-xl font-medium">원픽 맛집지도</p>
+    <div className="relative w-full h-[calc(100vh-120px)]">
+      {/* 검색 UI */}
+      <div className="absolute top-4 left-0 right-0 z-10 px-4 md:px-8 lg:px-16">
+        <LocationSearch onLocationSelect={handleLocationSelect} />
+        <div className="mt-2 text-right">
+          <CurrentLocationButton onLocationFound={handleLocationSelect} />
         </div>
+      </div>
+
+      {/* 지도 컴포넌트 */}
+      <GoogleMapComponent
+        restaurants={restaurants}
+        center={selectedLocation || undefined}
+        zoom={selectedLocation ? 17 : undefined}
+        showInfoWindow={true}
+        enableClick={false}
+        height="100%"
+      />
+
+      {/* 맛집 추가 또는 수정 버튼 */}
+      <div className="absolute bottom-6 right-6 flex flex-col gap-2">
+        {!user ? (
+          <button
+            onClick={() => router.push('/login')}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-full shadow-lg transition-colors"
+          >
+            로그인하고 원픽 맛집 등록하기
+          </button>
+        ) : !userRestaurant ? (
+          <button
+            onClick={() => router.push('/add-restaurant')}
+            className="bg-orange-500 hover:bg-orange-600 text-white font-bold py-3 px-4 rounded-full shadow-lg transition-colors"
+          >
+            내 원픽 맛집 등록하기
+          </button>
+        ) : (
+          <button
+            onClick={() => router.push(`/edit-restaurant/${userRestaurant.id}`)}
+            className="bg-blue-500 hover:bg-blue-600 text-white font-bold py-3 px-4 rounded-full shadow-lg transition-colors"
+          >
+            내 원픽 맛집 수정하기
+          </button>
+        )}
       </div>
     </div>
   );
