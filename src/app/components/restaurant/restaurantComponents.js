@@ -26,6 +26,11 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
   const router = useRouter();
   const { user } = useAuth();
 
+  // 디버깅용 useEffect 추가
+  useEffect(() => {
+    console.log('현재 사용자 상태:', user);
+  }, [user]);
+
   // 맵 클릭 핸들러
   const handleMapClick = async (location) => {
     try {
@@ -75,6 +80,12 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // 사용자 인증 상태 확인 추가
+    if (!user) {
+      setError('로그인이 필요합니다. 로그인 후 다시 시도해주세요.');
+      return;
+    }
+
     // 필수 필드 검증
     if (!formData.name || !formData.latitude || !formData.longitude || !formData.address) {
       setError('이름, 위치, 주소는 필수 입력사항입니다.');
@@ -114,6 +125,13 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
 
   return (
     <div className="max-w-4xl mx-auto p-4">
+      {/* 사용자 인증 상태 표시 */}
+      {!user && (
+        <div className="bg-yellow-50 text-yellow-700 p-4 rounded-lg mb-6">
+          로그인 상태를 확인 중입니다. 로그인이 필요한 기능입니다.
+        </div>
+      )}
+      
       <h1 className="text-2xl font-bold mb-6">
         {isEditMode ? '내 원픽 맛집 수정하기' : '내 원픽 맛집 등록하기'}
       </h1>

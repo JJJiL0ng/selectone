@@ -1,32 +1,16 @@
 // app/lib/supabase.js
-import { createClient as createSupabaseClient } from '@supabase/supabase-js';
+import { createClient } from '@supabase/supabase-js';
 
 // Supabase 클라이언트 설정
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
 // 클라이언트 사이드 Supabase 클라이언트 생성
-export const createClient = () => {
-  if (!supabaseUrl) {
-    throw new Error('supabaseUrl is required. NEXT_PUBLIC_SUPABASE_URL 환경 변수를 설정해주세요.');
-  }
-  
-  if (!supabaseAnonKey) {
-    throw new Error('supabaseAnonKey is required. NEXT_PUBLIC_SUPABASE_ANON_KEY 환경 변수를 설정해주세요.');
-  }
-  
-  return createSupabaseClient(supabaseUrl, supabaseAnonKey, {
-    auth: {
-      persistSession: true,
-      autoRefreshToken: true,
-      detectSessionInUrl: true,
-    },
-  });
-};
+export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
 // 서버 관련 함수들은 별도 파일로 분리
 export function createBrowserClient() {
-  return createSupabaseClient(
+  return createClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL,
     process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
   );
@@ -42,7 +26,7 @@ export async function createServerClient(cookieStore) {
     throw new Error('supabaseAnonKey is required. NEXT_PUBLIC_SUPABASE_ANON_KEY 환경 변수를 설정해주세요.');
   }
   
-  const supabase = createSupabaseClient(supabaseUrl, supabaseAnonKey, {
+  const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
