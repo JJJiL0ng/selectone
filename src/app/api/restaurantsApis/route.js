@@ -2,13 +2,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@/app/lib/supabase';
-import { getServerSession } from 'next-auth/next';
+// import { getServerSession } from 'next-auth/next';
 
 // getServerSession에 필요한 authOptions 가져오기
 // 경로가 없는 경우 직접 authOptions 객체를 정의
-const authOptions = {
-  // 여기에 필요한 인증 옵션 설정
-};
+// const authOptions = {
+//   // 여기에 필요한 인증 옵션 설정
+// };
 
 // GET /api/restaurantsApis - 모든 맛집 조회 API
 export async function GET(request) {
@@ -64,67 +64,18 @@ export async function GET(request) {
 // POST /api/restaurantsApis - 맛집 등록 API
 export async function POST(request) {
   try {
-    const session = await getServerSession(authOptions);
+    // Supabase 서버 클라이언트 생성
+    const supabase = await createServerClient(cookies());
+    
+    // 현재 로그인한 사용자 확인
+    const { data: { session } } = await supabase.auth.getSession();
     if (!session) {
       return NextResponse.json(
         { error: '로그인이 필요합니다.' },
         { status: 401 }
       );
     }
-
-    const userId = session.user.id;
-    const data = await request.json();
-
-    // 필수 필드 검증
-    if (!data.name || !data.latitude || !data.longitude || !data.address) {
-      return NextResponse.json(
-        { error: '이름, 위치, 주소는 필수 입력사항입니다.' },
-        { status: 400 }
-      );
-    }
-
-    // 사용자당 하나의 맛집만 등록 가능하도록 체크
-    const { data: existingRestaurant, error: checkError } = await supabase
-      .from('restaurants')
-      .select('id')
-      .eq('user_id', userId)
-      .maybeSingle();
-
-    if (checkError) throw checkError;
-
-    if (existingRestaurant) {
-      return NextResponse.json(
-        { error: '이미 등록한 맛집이 있습니다. 기존 맛집을 수정해주세요.' },
-        { status: 400 }
-      );
-    }
-
-    // 새 맛집 추가
-    const { data: newRestaurant, error } = await supabase
-      .from('restaurants')
-      .insert({
-        ...data,
-        user_id: userId
-      })
-      .select()
-      .single();
-
-    if (error) throw error;
-
-    return NextResponse.json({ restaurant: newRestaurant });
-  } catch (error) {
-    console.error('맛집 추가 에러:', error);
-    return NextResponse.json(
-      { error: '맛집 정보 저장 중 오류가 발생했습니다.' },
-      { status: 500 }
-    );
-  }
-}
-
-// PUT /api/restaurantsApis/:id - 맛집 수정 API
-export async function PUT(request, { params }) {
-  try {
-    const id = request.url.split('/').pop(); // URL에서 ID 추출
+    
     const body = await request.json();
     const { name, latitude, longitude, description, address } = body;
     
@@ -136,65 +87,82 @@ export async function PUT(request, { params }) {
       );
     }
     
-    // Supabase 서버 클라이언트 생성
-    const supabase = await createServerClient(cookies());
-    
-    // 현재 로그인한 사용자 확인
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
-      return NextResponse.json(
-        { error: '로그인이 필요합니다.' },
-        { status: 401 }
-      );
-    }
-    
-    // 맛집 소유자 확인
-    const { data: restaurant, error: fetchError } = await supabase
+    // 사용자가 이미 등록한 맛집이 있는지 확인
+    const { data: existingRestaurant, error: checkError } = await supabase
       .from('restaurants')
-      .select('user_id')
-      .eq('id', id)
-      .single();
+      .select('id')
+      .eq('user_id', session.user.id)
+      .maybeSingle();
     
-    if (fetchError) {
+    if (checkError && checkError.code !== 'PGRST116') {
+      console.error('맛집 확인 에러:', checkError);
       return NextResponse.json(
-        { error: '맛집을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
-    }
-    
-    if (restaurant.user_id !== session.user.id) {
-      return NextResponse.json(
-        { error: '자신의 맛집만 수정할 수 있습니다.' },
-        { status: 403 }
-      );
-    }
-    
-    // 맛집 정보 업데이트
-    const { data, error } = await supabase
-      .from('restaurants')
-      .update({
-        name,
-        latitude,
-        longitude,
-        description: description || null,
-        address
-      })
-      .eq('id', id)
-      .select()
-      .single();
-    
-    if (error) {
-      console.error('맛집 업데이트 에러:', error);
-      return NextResponse.json(
-        { error: '맛집 업데이트 중 오류가 발생했습니다.' },
+        { error: '맛집 확인 중 오류가 발생했습니다.' },
         { status: 500 }
       );
     }
     
-    return NextResponse.json({
-      restaurant: data,
-      message: '맛집 정보가 업데이트되었습니다.'
-    });
+    let result;
+    
+    if (existingRestaurant) {
+      // 기존 맛집 업데이트
+      const { data, error } = await supabase
+        .from('restaurants')
+        .update({
+          name,
+          latitude,
+          longitude,
+          description: description || null,
+          address
+        })
+        .eq('id', existingRestaurant.id)
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('맛집 업데이트 에러:', error);
+        return NextResponse.json(
+          { error: '맛집 업데이트 중 오류가 발생했습니다.' },
+          { status: 500 }
+        );
+      }
+      
+      result = {
+        restaurant: data,
+        message: '맛집 정보가 업데이트되었습니다.',
+        isNew: false
+      };
+    } else {
+      // 새 맛집 생성
+      const { data, error } = await supabase
+        .from('restaurants')
+        .insert({
+          name,
+          latitude,
+          longitude,
+          description: description || null,
+          address,
+          user_id: session.user.id
+        })
+        .select()
+        .single();
+      
+      if (error) {
+        console.error('맛집 등록 에러:', error);
+        return NextResponse.json(
+          { error: '맛집 등록 중 오류가 발생했습니다.' },
+          { status: 500 }
+        );
+      }
+      
+      result = {
+        restaurant: data,
+        message: '맛집이 등록되었습니다.',
+        isNew: true
+      };
+    }
+    
+    return NextResponse.json(result);
   } catch (error) {
     console.error('API 에러:', error);
     return NextResponse.json(
@@ -204,11 +172,9 @@ export async function PUT(request, { params }) {
   }
 }
 
-// DELETE /api/restaurantsApis/:id - 맛집 삭제 API
-export async function DELETE(request) {
+// PUT /api/restaurantsApis/:id - 맛집 수정 API
+export async function PUT(request, { params }) {
   try {
-    const id = request.url.split('/').pop(); // URL에서 ID 추출
-    
     // Supabase 서버 클라이언트 생성
     const supabase = await createServerClient(cookies());
     
@@ -220,50 +186,121 @@ export async function DELETE(request) {
         { status: 401 }
       );
     }
-    
+
+    const { id } = params;
+    const userId = session.user.id;
+    const data = await request.json();
+
+    // 필수 필드 검증
+    if (!data.name || !data.latitude || !data.longitude || !data.address) {
+      return NextResponse.json(
+        { error: '이름, 위치, 주소는 필수 입력사항입니다.' },
+        { status: 400 }
+      );
+    }
+
     // 맛집 소유자 확인
-    const { data: restaurant, error: fetchError } = await supabase
+    const { data: restaurant, error: checkError } = await supabase
       .from('restaurants')
       .select('user_id')
       .eq('id', id)
       .single();
-    
-    if (fetchError) {
-      return NextResponse.json(
-        { error: '맛집을 찾을 수 없습니다.' },
-        { status: 404 }
-      );
+
+    if (checkError) {
+      if (checkError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: '맛집을 찾을 수 없습니다.' },
+          { status: 404 }
+        );
+      }
+      throw checkError;
     }
-    
-    if (restaurant.user_id !== session.user.id) {
+
+    if (restaurant.user_id !== userId) {
       return NextResponse.json(
-        { error: '자신의 맛집만 삭제할 수 있습니다.' },
+        { error: '본인이 등록한 맛집만 수정할 수 있습니다.' },
         { status: 403 }
       );
     }
+
+    // 맛집 정보 업데이트
+    const { data: updatedRestaurant, error } = await supabase
+      .from('restaurants')
+      .update({
+        ...data,
+        updated_at: new Date().toISOString()
+      })
+      .eq('id', id)
+      .select()
+      .single();
+
+    if (error) throw error;
+
+    return NextResponse.json({ restaurant: updatedRestaurant });
+  } catch (error) {
+    console.error('맛집 수정 에러:', error);
+    return NextResponse.json(
+      { error: '맛집 정보 수정 중 오류가 발생했습니다.' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE /api/restaurantsApis/:id - 맛집 삭제 API
+export async function DELETE(request, { params }) {
+  try {
+    // Supabase 서버 클라이언트 생성
+    const supabase = await createServerClient(cookies());
     
+    // 현재 로그인한 사용자 확인
+    const { data: { session } } = await supabase.auth.getSession();
+    if (!session) {
+      return NextResponse.json(
+        { error: '로그인이 필요합니다.' },
+        { status: 401 }
+      );
+    }
+
+    const { id } = params;
+    const userId = session.user.id;
+
+    // 맛집 소유자 확인
+    const { data: restaurant, error: checkError } = await supabase
+      .from('restaurants')
+      .select('user_id')
+      .eq('id', id)
+      .single();
+
+    if (checkError) {
+      if (checkError.code === 'PGRST116') {
+        return NextResponse.json(
+          { error: '맛집을 찾을 수 없습니다.' },
+          { status: 404 }
+        );
+      }
+      throw checkError;
+    }
+
+    if (restaurant.user_id !== userId) {
+      return NextResponse.json(
+        { error: '본인이 등록한 맛집만 삭제할 수 있습니다.' },
+        { status: 403 }
+      );
+    }
+
     // 맛집 삭제
     const { error } = await supabase
       .from('restaurants')
       .delete()
       .eq('id', id);
-    
-    if (error) {
-      console.error('맛집 삭제 에러:', error);
-      return NextResponse.json(
-        { error: '맛집 삭제 중 오류가 발생했습니다.' },
-        { status: 500 }
-      );
-    }
-    
-    return NextResponse.json({
-      success: true,
-      message: '맛집이 삭제되었습니다.'
-    });
+
+    if (error) throw error;
+
+    return NextResponse.json({ success: true });
   } catch (error) {
-    console.error('API 에러:', error);
+    console.error('맛집 삭제 에러:', error);
     return NextResponse.json(
-      { error: '서버 에러가 발생했습니다.' },
+      { error: '맛집 정보 삭제 중 오류가 발생했습니다.' },
       { status: 500 }
     );
   }

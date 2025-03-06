@@ -128,13 +128,20 @@ export function RestaurantForm({ initialData = null, isEditMode = false, hideMap
         
       const method = isEditMode ? 'PUT' : 'POST';
 
+      // 디버깅 로그 추가
+      console.log('API 요청 정보:', { endpoint, method, formData });
+
       const response = await fetch(endpoint, {
         method,
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData)
       });
 
+      // 응답 상태 확인 로그 추가
+      console.log('API 응답 상태:', response.status, response.statusText);
+
       const data = await response.json();
+      console.log('API 응답 데이터:', data);
 
       if (!response.ok) {
         throw new Error(data.error || '맛집 저장 중 오류가 발생했습니다.');

@@ -200,6 +200,9 @@ export async function PUT(request, { params }) {
       );
     }
 
+    // Supabase 클라이언트 생성 - 이 부분이 누락됨
+    const supabase = await createServerClient(cookies());
+
     // 맛집 소유자 확인
     const { data: restaurant, error: checkError } = await supabase
       .from('restaurants')

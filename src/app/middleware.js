@@ -13,8 +13,8 @@ export async function middleware(req) {
   // 현재 경로
   const { pathname } = req.nextUrl;
 
-  // 인증이 필요한 경로 목록 (add-restaurant는 제외)
-  const protectedRoutes = ['/edit-restaurant'];
+  // 인증이 필요한 경로 목록
+  const protectedRoutes = ['/edit-restaurant', '/add-restaurant'];
   
   // 인증이 필요한 경로에 인증 없이 접근하는 경우
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
@@ -28,7 +28,7 @@ export async function middleware(req) {
   return res;
 }
 
-// 모든 경로에 미들웨어 적용
+// 미들웨어가 적용될 경로 설정
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/edit-restaurant/:path*', '/add-restaurant', '/api/restaurantsApis/:path*']
 };
