@@ -1,7 +1,7 @@
 // app/api/authApis/callback/route.js
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createServerClient } from '@/app/lib/supabase';
+import { createServerClient } from '@/app/lib/supabase-server';
 
 // GET /api/authApis/callback - OAuth 인증 콜백 처리
 export async function GET(request) {
