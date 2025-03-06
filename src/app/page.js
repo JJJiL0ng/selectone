@@ -13,7 +13,7 @@ export default function Home() {
   useEffect(() => {
     // 로그인한 사용자가 닉네임이 없으면 온보딩으로 리디렉션
     if (user && !user.nickname && !isLoading) {
-      router.push('/onboarding');
+      router.push('/map');
     }
   }, [user, isLoading, router]);
 
