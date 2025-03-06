@@ -1,13 +1,19 @@
 // app/api/restaurantsApis/route.js
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
-import { createServerClient, supabase } from '@/app/lib/supabase';
+import { createServerClient } from '@/app/lib/supabase';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
+// getServerSession에 필요한 authOptions 가져오기
+// 경로가 없는 경우 직접 authOptions 객체를 정의하거나 다른 파일에서 가져와야 함
+const authOptions = {
+  // 여기에 필요한 인증 옵션 설정
+  // 예: providers, callbacks 등
+};
 
 // GET /api/restaurantsApis - 모든 맛집 조회 API
 export async function GET(request) {
-  try {
+  try { 
     // URL 쿼리 파라미터 파싱
     const url = new URL(request.url);
     const userId = url.searchParams.get('userId');

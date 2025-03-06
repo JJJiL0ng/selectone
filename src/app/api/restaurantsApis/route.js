@@ -2,9 +2,13 @@
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@/app/lib/supabase';
-import { supabase } from '@/lib/supabase';
 import { getServerSession } from 'next-auth/next';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+
+// getServerSession에 필요한 authOptions 가져오기
+// 경로가 없는 경우 직접 authOptions 객체를 정의
+const authOptions = {
+  // 여기에 필요한 인증 옵션 설정
+};
 
 // GET /api/restaurantsApis - 모든 맛집 조회 API
 export async function GET(request) {
