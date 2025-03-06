@@ -7,18 +7,16 @@ export async function middleware(req) {
   const res = NextResponse.next();
   const supabase = createMiddlewareClient({ req, res });
   
-  // 현재 세션 확인
-  const {
-    data: { session },
-  } = await supabase.auth.getSession();
-
+  // 세션 새로고침
+  const { data: { session } } = await supabase.auth.getSession();
+  
   // 현재 경로
   const { pathname } = req.nextUrl;
 
   // 인증이 필요한 경로 목록
-  const protectedRoutes = ['/map', '/onboarding', '/add-restaurant', '/edit-restaurant'];
+  const protectedRoutes = ['/map', '/add-restaurant', '/edit-restaurant'];
   // 인증된 사용자가 접근하면 리디렉션될 경로
-  const authRoutes = ['/login'];
+  const authRoutes = ['/login', '/map'];
   
   // 인증이 필요한 경로에 인증 없이 접근하는 경우
   const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route));
@@ -27,32 +25,17 @@ export async function middleware(req) {
     return NextResponse.redirect(redirectUrl);
   }
   
-  // 이미 인증된 사용자가 로그인 페이지에 접근하는 경우
   const isAuthRoute = authRoutes.some(route => pathname.startsWith(route));
   if (isAuthRoute && session) {
-    // 현재 사용자 정보 가져오기
-    const { data: userData } = await supabase
-      .from('users')
-      .select('nickname')
-      .eq('id', session.user.id)
-      .single();
-      
-    // 닉네임이 없는 경우 온보딩으로, 있는 경우 지도 페이지로
-    const redirectPath = userData?.nickname ? '/map' : '/onboarding';
-    const redirectUrl = new URL(redirectPath, req.url);
+    // 지도 페이지로 리디렉션
+    const redirectUrl = new URL('/map', req.url);
     return NextResponse.redirect(redirectUrl);
   }
 
   return res;
 }
 
-// 미들웨어가 적용될 경로 패턴 설정
+// 모든 경로에 미들웨어 적용
 export const config = {
-  matcher: [
-    '/map/:path*',
-    '/onboarding',
-    '/login',
-    '/add-restaurant/:path*',
-    '/edit-restaurant/:path*',
-  ],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 };

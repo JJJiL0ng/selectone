@@ -1,9 +1,9 @@
-// app/api/auth/callback/route.js
+// app/api/authApis/callback/route.js
 import { NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { createServerClient } from '@/app/lib/supabase';
 
-// GET /api/auth/callback - OAuth 인증 콜백 처리
+// GET /api/authApis/callback - OAuth 인증 콜백 처리
 export async function GET(request) {
   const requestUrl = new URL(request.url);
   const code = requestUrl.searchParams.get('code');
@@ -11,69 +11,46 @@ export async function GET(request) {
   if (code) {
     const supabase = await createServerClient(cookies());
     
-    // 세션 설정
-    await supabase.auth.exchangeCodeForSession(code);
-    
-    // 현재 사용자 정보 가져오기
-    const { data: { session } } = await supabase.auth.getSession();
-    
-    if (session) {
-      // 사용자가 DB에 존재하는지 확인
-      const { data: userData, error: userError } = await supabase
-        .from('users')
-        .select('*')
-        .eq('id', session.user.id)
-        .single();
+    try {
+      // 세션 설정
+      await supabase.auth.exchangeCodeForSession(code);
       
-      // 사용자가 DB에 없으면 새로 생성
-      if (userError && userError.code === 'PGRST116') {
-        // 이메일에서 기본 닉네임 추출 (@ 앞 부분)
-        const defaultNickname = session.user.email.split('@')[0];
-        
-        // 닉네임 중복 확인
-        const { count } = await supabase
+      // 현재 사용자 정보 가져오기
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (session) {
+        // 사용자가 DB에 존재하는지 확인
+        const { data: userData, error: userError } = await supabase
           .from('users')
-          .select('id', { count: 'exact' })
-          .eq('nickname', defaultNickname);
+          .select('*')
+          .eq('id', session.user.id)
+          .single();
         
-        let nickname = defaultNickname;
-        let counter = 1;
-        
-        // 닉네임이 중복되면 숫자 추가
-        while (count > 0 && counter < 100) {
-          nickname = `${defaultNickname}${counter}`;
-          const { count: newCount } = await supabase
-            .from('users')
-            .select('id', { count: 'exact' })
-            .eq('nickname', nickname);
+        // 사용자가 DB에 없으면 새로 생성 (이메일을 닉네임으로 사용)
+        if (userError && userError.code === 'PGRST116') {
+          // 이메일에서 @ 앞부분만 추출하여 닉네임으로 사용
+          const emailParts = session.user.email.split('@');
+          const nickname = emailParts[0];
           
-          if (newCount === 0) break;
-          counter++;
+          // 사용자 프로필 생성
+          await supabase
+            .from('users')
+            .insert({
+              id: session.user.id,
+              email: session.user.email,
+              nickname: nickname, // 이메일 앞부분을 닉네임으로 설정
+              auth_provider: 'google',
+            });
         }
         
-        // 사용자 프로필 생성
-        await supabase
-          .from('users')
-          .insert({
-            id: session.user.id,
-            email: session.user.email,
-            nickname: null, // 사용자가 직접 설정하도록 null로 설정
-            auth_provider: 'google',
-          });
-        
-        // 온보딩 페이지로 리디렉션
-        return NextResponse.redirect(new URL('/onboarding', request.url));
+        // 지도 페이지로 리디렉션 (온보딩 페이지 건너뛰기)
+        return NextResponse.redirect(new URL('/map', requestUrl.origin));
       }
-      
-      // 사용자가 이미 존재하고 닉네임이 있으면 지도 페이지로, 없으면 온보딩 페이지로
-      if (userData && userData.nickname) {
-        return NextResponse.redirect(new URL('/map', request.url));
-      } else {
-        return NextResponse.redirect(new URL('/onboarding', request.url));
-      }
+    } catch (error) {
+      console.error('인증 처리 중 오류 발생:', error);
     }
   }
   
-  // 오류 시 로그인 페이지로
-  return NextResponse.redirect(new URL('/login', request.url));
+  // 오류 발생 시 홈페이지로 리디렉션
+  return NextResponse.redirect(new URL('/', requestUrl.origin));
 }
